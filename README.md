@@ -17,7 +17,7 @@ Questo progetto si prefigge di ottimizzare l'analisi e la categorizzazione dei c
 BIGDATA_PROJECT/
 - README.md
 - src/
-    - creazione dataframe
+    - import e dataframe
       - intro.py
     - analisi esplorativa dati
     - creazione della nuvola di parole
