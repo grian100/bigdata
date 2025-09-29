@@ -22,6 +22,7 @@ BIGDATA_PROJECT/
     - analisi esplorativa dati
       - eda.py
     - creazione della nuvola di parole
+      - jpeg
       - world_cloud.py
     - sviluppo del classificatore
       - classification.py
