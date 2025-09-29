@@ -1,4 +1,4 @@
-## Analisi di Wikipedia
+# Analisi di Wikipedia
 Questo progetto si prefigge di ottimizzare l'analisi e la categorizzazione dei contenuti di Wikipedia, attraverso la data analysis e il machine learning. L'obiettivo principale è comprendere meglio il vasto patrimonio di contenuti informativi offerti da Wikipedia e sviluppare un sistema di classificazione automatica che consenta di categorizzare efficacemente i nuovi articoli futuri.
 
 # Servizi e librerie utilizzati
