@@ -27,5 +27,3 @@ BIGDATA_PROJECT/
       - classification.py
     - creare nuovi insights
       - insights.py
-- data/
-  - wikipedia.csv
