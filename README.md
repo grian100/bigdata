@@ -20,8 +20,12 @@ BIGDATA_PROJECT/
     - import e dataframe
       - intro.py
     - analisi esplorativa dati
+      - eda.py
     - creazione della nuvola di parole
+      - world_cloud.py
     - sviluppo del classificatore
+      - classification.py
     - creare nuovi insights
+      - insights.py
 - data/
   - wikipedia.csv
