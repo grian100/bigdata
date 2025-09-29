@@ -24,4 +24,4 @@ BIGDATA_PROJECT/
     - sviluppo del classificatore
     - creare nuovi insights
 - data/
-      - wikipedia.csv
+  - wikipedia.csv
