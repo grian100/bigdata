@@ -6,6 +6,7 @@ Questo progetto si prefigge di ottimizzare l'analisi e la categorizzazione dei c
 - <strong>Databricks</strong> piattaforma di Data Intelligence basata su una lakehouse che fornisce una base aperta e unificata per tutti i dati
 - <strong>Pandas DataFrame</strong> libreria in grado di rappresentare e lavorare con dati tabulari
 - <strong>Apache Spark</strong> il quale è dotato di librerie di livello superiore, tra cui il supporto per query SQL, streaming di dati, apprendimento automatico ed elaborazione di grafici
+- <strong>WorldCloud</strong> libreria per la creazione della nuvola di parole
 
 # Obiettivi del progetto
 - Analisi Descrittiva dei Contenuti: Il primo obiettivo del progetto è condurre un'<strong>analisi esplorativa</strong> dei dati (EDA) per capire le caratteristiche dei contenuti di Wikipedia suddivisi in diverse categorie tematiche, come ad esempio: - Cultura, Economia, Medicina, Tecnologia, Politica, Scienza, e altre. L'analisi esplorativa prevede: - Il conteggio degli articoli presenti per ogni categoria. - Il numero medio di parole per articolo. - La lunghezza dell'articolo più lungo e di quello più corto per ciascuna categoria. - La creazione di nuvole di parole rappresentative per ogni categoria, per identificare i termini più frequenti e rilevanti.
@@ -16,3 +17,11 @@ Questo progetto si prefigge di ottimizzare l'analisi e la categorizzazione dei c
 BIGDATA_PROJECT/
 - README.md
 - src/
+    - creazione dataframe
+      - intro.py
+    - analisi esplorativa dati
+    - creazione della nuvola di parole
+    - sviluppo del classificatore
+    - creare nuovi insights
+- data/
+      - wikipedia.csv
