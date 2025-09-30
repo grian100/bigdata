@@ -23,6 +23,7 @@ BIGDATA_PROJECT/
       - eda.py
     - creazione della nuvola di parole
       - jpeg/
+          - *.png # output parole più richieste per categoria     
       - world_cloud.py
     - sviluppo del classificatore
       - classification.py
