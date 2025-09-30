@@ -3,7 +3,7 @@ Questo progetto si prefigge di ottimizzare l'analisi e la categorizzazione dei c
 
 # Servizi e librerie utilizzati
 - <strong>AWS S3</strong> (Servizio cloud di archiviazione object oriented)
-- <strong>Databricks</strong> piattaforma di Data Intelligence basata su una lakehouse che fornisce una base aperta e unificata per tutti i dati
+- <strong>Databricks</strong> piattaforma di Data Intelligence basata su un data lakehouse ovvero un'architettura dati moderna che unifica le capacità di un data lake e di un data warehouse in un'unica piattaforma, offrendo flessibilità e scalabilità per dati strutturati e non, combinata con le funzionalità di gestione [https://www.databricks.com/]
 - <strong>Pandas DataFrame</strong> libreria in grado di rappresentare e lavorare con dati tabulari
 - <strong>Apache Spark</strong> il quale è dotato di librerie di livello superiore, tra cui il supporto per query SQL, streaming di dati, apprendimento automatico ed elaborazione di grafici
 - <strong>WorldCloud</strong> libreria per la creazione della nuvola di parole
