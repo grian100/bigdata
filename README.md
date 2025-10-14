@@ -44,3 +44,14 @@ BIGDATA_PROJECT/
       - insights.py
 
 # Workflow
+Le librerie principali sono <strong>pandas, sklearn, pyspark</strong>, per il caricamento e l'analisi esplorativa, con la misura della media del numero di parole e il conteggio dell'articolo più corto e più lungo.
+
+Per la successiva creaione della nuvola di parole usiamo la libreria <strong>WordCloud</strong> raggruppando le parole per categoria, fitrando in un set gli articoli o preposizioni da non tenere conto.
+
+Per lo sviluppo del classificatore si realizza una pipeline che gestisce la tokenizzazione (separa le singole parole), rimozione di parole, mappatura dei termini rimasti, convertire le colonne di tipo stringa categoriale in indici numerici e classificazione:
+ - <strong><mark>pipeline = Pipeline(stages=[tokenizer, stopwords_remover, hashing_tf, idf, label_indexer, classifier ])</mark></strong>
+utilizza nella classificazione la <strong>Regressione Logistica</strong> in modo da ottenere l'accuratezza sul set di training che corrisponde all'80% del dataset e confrontarlo con il restante 20% del set di test.
+
+Si procede quindi successivamente a confrontare l'accuratezza ottenuta con questo modello con uno nuovo modello ottenuto impiegando queta volta il <strong>Random Forest Classifier</strong> addestrando ancora il set di training e quello di test.
+
+Per la misura dei nuovi insights si utilizzano delle <strong>regex espression</strong> per la pulizia e tokenizzazione degli articoli, si filtrano le parole non significative con il <strong>filter</strong>, fino al conteggio delle singole parole per categoria.
