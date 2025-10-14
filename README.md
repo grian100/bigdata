@@ -29,19 +29,18 @@ Questo progetto si prefigge di ottimizzare l'analisi e la categorizzazione dei c
 # Repository
 BIGDATA_PROJECT/
 - README.md
-- src/
-    - import e dataframe
-      - intro.py
-    - analisi esplorativa dati
-      - eda.py
-    - creazione della nuvola di parole
-      - jpeg/
-          - *.png # output parole più richieste per categoria     
-      - world_cloud.py
-    - sviluppo del classificatore
-      - classification.py
-    - creare nuovi insights
-      - insights.py
+- import e dataframe
+  - intro.py
+- analisi esplorativa dati
+  - eda.py
+- creazione della nuvola di parole
+  - jpeg/
+    - *.png # output parole più richieste per categoria     
+  - world_cloud.py
+- sviluppo del classificatore
+  - classification.py
+- creare nuovi insights
+  - insights.py
 
 # Workflow
 Le librerie principali sono <strong>pandas, sklearn, pyspark</strong>, per il caricamento e l'analisi esplorativa, con la misura della media del numero di parole e il conteggio dell'articolo più corto e più lungo.
