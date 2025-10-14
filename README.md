@@ -9,9 +9,22 @@ Questo progetto si prefigge di ottimizzare l'analisi e la categorizzazione dei c
 - <strong>WorldCloud</strong> libreria per la creazione della nuvola di parole
 
 # Obiettivi del progetto
-- Analisi Descrittiva dei Contenuti: Il primo obiettivo del progetto è condurre un'<strong>analisi esplorativa</strong> dei dati (EDA) per capire le caratteristiche dei contenuti di Wikipedia suddivisi in diverse categorie tematiche, come ad esempio: - Cultura, Economia, Medicina, Tecnologia, Politica, Scienza, e altre. L'analisi esplorativa prevede: - Il conteggio degli articoli presenti per ogni categoria. - Il numero medio di parole per articolo. - La lunghezza dell'articolo più lungo e di quello più corto per ciascuna categoria. - La creazione di nuvole di parole rappresentative per ogni categoria, per identificare i termini più frequenti e rilevanti.
-- Sviluppo di un Classificatore Automatico: Il secondo obiettivo è creare un modello di machine learning capace di <strong>classificare automaticamente</strong> gli articoli in base alla loro categoria. Il sistema di classificazione verrà addestrato utilizzando dati di testo presenti nelle seguenti colonne del dataset: - Sommario (summary): Introduzione breve dell'articolo. - Testo Completo (documents): Contenuto completo dell'articolo.
-- Identificazione di Nuovi Insights: L'analisi consentirà anche di ottenere preziosi insights sui contenuti di Wikipedia, come la <strong>densità di articoli</strong> per categoria o le <strong>tendenze linguistiche</strong> associate a determinati argomenti. Queste informazioni possono aiutare Wikimedia a migliorare l'organizzazione delle pagine e a ottimizzare i propri sforzi editoriali.
+1. Analisi Descrittiva dei Contenuti
+    - Il primo obiettivo del progetto è condurre un'<strong>analisi esplorativa</strong> dei dati (EDA) per capire le caratteristiche dei contenuti di Wikipedia suddivisi in diverse categorie tematiche, come ad esempio:
+      - Cultura, Economia, Medicina, Tecnologia, Politica, Scienza, e altre.
+    - L'analisi esplorativa prevede:
+        - Il conteggio degli articoli presenti per ogni categoria
+        - Il numero medio di parole per articolo
+        - La lunghezza dell'articolo più lungo e di quello più corto per ciascuna categoria
+        - La creazione di nuvole di parole rappresentative per ogni categoria, per identificare i termini più frequenti e rilevanti
+      
+2. Sviluppo di un Classificatore Automatico
+   - Il secondo obiettivo è creare un modello di machine learning capace di <strong>classificare automaticamente</strong> gli articoli in base alla loro categoria. Il sistema di classificazione verrà addestrato utilizzando dati di testo presenti nelle seguenti colonne del dataset:
+       - Sommario (summary): Introduzione breve dell'articolo
+       - Testo Completo (documents): Contenuto completo dell'articolo
+     
+3. Identificazione di Nuovi Insights
+      - L'analisi consentirà anche di ottenere preziosi insights sui contenuti di Wikipedia, come la <strong>densità di articoli</strong> per categoria o le <strong>tendenze linguistiche</strong> associate a determinati argomenti. Queste informazioni possono aiutare Wikimedia a migliorare l'organizzazione delle pagine e a ottimizzare i propri sforzi editoriali
 
 # Repository
 BIGDATA_PROJECT/
@@ -29,3 +42,5 @@ BIGDATA_PROJECT/
       - classification.py
     - creare nuovi insights
       - insights.py
+
+# Workflow
