@@ -107,7 +107,7 @@ display(analysis.lexical_stats(tokens).reset_index())
 # MAGIC %md
 # MAGIC ## 4. Classificatore
 # MAGIC I modelli vengono confrontati su un validation set ricavato dal training set; il migliore per F1 macro
-# MAGIC viene riaddestrato su tutto il training set e valutato una sola volta sul test set.
+# MAGIC tra quelli con pesi per classe viene riaddestrato su tutto il training set e valutato una sola volta sul test set.
 
 # COMMAND ----------
 
@@ -118,7 +118,7 @@ display(comparison.reset_index())
 
 # COMMAND ----------
 
-best = comparison["f1_macro"].idxmax()
+best = classifier.select_model(comparison)
 model, labels = classifier.train_final_model(train, classifier.candidate_models()[best])
 rows, metrics = classifier.evaluate(model, test, labels)
 print(best, metrics)

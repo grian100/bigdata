@@ -15,7 +15,7 @@ from pyspark.ml import Pipeline, PipelineModel
 from pyspark.ml.classification import LogisticRegression, NaiveBayes, RandomForestClassifier
 from pyspark.ml.feature import IDF, CountVectorizer, IndexToString, StringIndexer, UnivariateFeatureSelector
 from pyspark.sql import functions as F
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score, recall_score
 
 from .data import LABEL, SEED, TEXT
 from .spark import cache
@@ -41,34 +41,47 @@ def featurizer(input_col=TEXT, vocab_size=VOCAB_SIZE, min_df=MIN_DF):
     ])
 
 
-def logistic_regression(reg_param, standardization=False, class_weights=False):
+def logistic_regression(reg_param, standardization=False, class_weights=True):
     """Regressione logistica multinomiale.
 
     Spark per default standardizza le feature (standardization=True): con il TF-IDF questo
     porta le parole rare sulla stessa scala di quelle frequenti e ne gonfia l'influenza,
     peggiorando le previsioni. Qui la standardizzazione è disattivata per default.
-    Con class_weights=True ogni articolo pesa in modo inversamente proporzionale alla
-    dimensione della sua categoria (colonna "weight", vedi with_class_weights).
+    Con class_weights=True (default) ogni articolo pesa in modo inversamente proporzionale
+    alla dimensione della sua categoria (colonna "weight", vedi with_class_weights).
     """
     model = LogisticRegression(maxIter=100, regParam=reg_param, standardization=standardization)
     return model.setWeightCol("weight") if class_weights else model
 
 
+# Modelli senza pesi per classe o con la standardizzazione di Spark: vengono confrontati
+# per misurare l'effetto delle due scelte, ma non possono essere scelti come modello finale
+REFERENCE_MODELS = {
+    "Regressione logistica senza pesi per classe (regParam=0.01)",
+    "Regressione logistica con standardizzazione (regParam=0.01)",
+}
+
+
 def candidate_models(seed=SEED):
-    """Classificatori da confrontare."""
+    """Classificatori da confrontare. Tutti, tranne quelli di riferimento, usano i pesi per classe."""
     return {
         "Regressione logistica (regParam=0.001)": logistic_regression(0.001),
         "Regressione logistica (regParam=0.01)": logistic_regression(0.01),
         "Regressione logistica (regParam=0.1)": logistic_regression(0.1),
-        "Regressione logistica (regParam=0.01, pesi per classe)": logistic_regression(0.01, class_weights=True),
-        # Impostazione predefinita di Spark, per confronto
+        "Regressione logistica senza pesi per classe (regParam=0.01)": logistic_regression(0.01, class_weights=False),
+        # Impostazione predefinita di Spark
         "Regressione logistica con standardizzazione (regParam=0.01)": logistic_regression(0.01, standardization=True),
         # Modello classico per il testo: veloce e adatto a feature sparse non negative
-        "Naive Bayes": NaiveBayes(modelType="multinomial", smoothing=1.0),
+        "Naive Bayes": NaiveBayes(modelType="multinomial", smoothing=1.0, weightCol="weight"),
         # Le foreste gestiscono male decine di migliaia di feature sparse (con 50.000 parole
         # l'addestramento esaurisce la memoria): si usano le 2.000 parole più informative
         "Random forest (2.000 parole)": random_forest(seed=seed),
     }
+
+
+def select_model(comparison):
+    """Il modello con l'F1 macro più alto, esclusi quelli di riferimento."""
+    return comparison.drop(index=REFERENCE_MODELS, errors="ignore")["f1_macro"].idxmax()
 
 
 def random_forest(n_features=2000, seed=SEED):
@@ -77,7 +90,7 @@ def random_forest(n_features=2000, seed=SEED):
         UnivariateFeatureSelector(featuresCol="features", outputCol="selected", labelCol="label",
                                   selectionMode="numTopFeatures")
         .setFeatureType("continuous").setLabelType("categorical").setSelectionThreshold(n_features),
-        RandomForestClassifier(featuresCol="selected", numTrees=100, maxDepth=10, seed=seed),
+        RandomForestClassifier(featuresCol="selected", numTrees=100, maxDepth=10, seed=seed, weightCol="weight"),
     ])
 
 
@@ -102,11 +115,14 @@ def predictions_to_pandas(predictions, labels):
 
 
 def classification_metrics(rows):
-    """Accuratezza e F1 macro (media non pesata tra le classi, sensibile alle classi piccole)."""
+    """Accuratezza, F1 macro (media non pesata tra le classi, sensibile alle classi piccole),
+    F1 pesato e recall minimo, cioè il recall della categoria riconosciuta peggio."""
+    classes = sorted(rows[LABEL].unique())
     return {
         "accuratezza": accuracy_score(rows[LABEL], rows["prevista"]),
         "f1_macro": f1_score(rows[LABEL], rows["prevista"], average="macro"),
         "f1_pesato": f1_score(rows[LABEL], rows["prevista"], average="weighted"),
+        "recall_minimo": recall_score(rows[LABEL], rows["prevista"], labels=classes, average=None).min(),
     }
 
 
@@ -141,8 +157,8 @@ def compare_models(train, validation, models=None, featurizer_pipeline=None, ver
         results.append({"modello": name, **classification_metrics(rows), "secondi": time.time() - start})
         if verbose:
             r = results[-1]
-            print(f"  {name}: accuratezza {r['accuratezza']:.3f}, F1 macro {r['f1_macro']:.3f} "
-                  f"({r['secondi']:.0f} s)", flush=True)
+            print(f"  {name}: accuratezza {r['accuratezza']:.3f}, F1 macro {r['f1_macro']:.3f}, "
+                  f"recall minimo {r['recall_minimo']:.3f} ({r['secondi']:.0f} s)", flush=True)
     return pd.DataFrame(results).set_index("modello").sort_values("f1_macro", ascending=False)
 
 

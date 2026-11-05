@@ -85,12 +85,12 @@ Al primo avvio il dataset (circa 1 GB) viene scaricato in `data/`. Tabelle e ris
    - <strong><mark>RegexTokenizer → StopWordsRemover → CountVectorizer → IDF → classificatore → IndexToString</mark></strong>
 
    Lo split train/test (80/20) è stratificato per categoria. Vengono confrontati su un validation set ricavato dal training set:
-   - regressione logistica con diversi valori di regolarizzazione, con e senza pesi per classe (le categorie sono molto sbilanciate);
+   - regressione logistica con diversi valori di regolarizzazione e con <strong>pesi per classe</strong>: ogni articolo pesa in modo inversamente proporzionale alla dimensione della sua categoria, perché le categorie sono molto sbilanciate (`politics` ha 30 volte meno articoli di `medicine`);
+   - per confronto, la stessa regressione logistica senza pesi per classe;
    - regressione logistica con la standardizzazione delle feature, impostazione predefinita di Spark: con il TF-IDF amplifica le parole rare e peggiora i risultati;
-   - Naive Bayes, il modello classico per la classificazione di testi;
-   - random forest, preceduta dalla selezione delle 2.000 parole più informative, perché con 50.000 feature sparse esaurisce la memoria.
+   - Naive Bayes, il modello classico per la classificazione di testi, e random forest, preceduta dalla selezione delle 2.000 parole più informative, perché con 50.000 feature sparse esaurisce la memoria.
 
-   Il modello migliore per F1 macro viene valutato una sola volta sul test set e salvato come pipeline completa, che riceve direttamente il testo grezzo.
+   Tutti i modelli tranne quello di riferimento senza pesi usano i pesi per classe. Il modello finale è il migliore per F1 macro tra quelli con i pesi; viene valutato una sola volta sul test set e salvato come pipeline completa, che riceve direttamente il testo grezzo.
 
 6. <strong>Insights</strong>: duplicazione e densità degli articoli per categoria, sotto-argomenti dominanti, indicatori linguistici (ricchezza lessicale e lunghezza delle parole).
 
@@ -128,29 +128,31 @@ Le nuvole mostrano le <strong>parole caratteristiche</strong> di ogni categoria,
 - <strong>Tendenze linguistiche</strong>: `humanities`, `pets` e `culture` hanno il lessico più vario, `energy` e `transport` il più ripetitivo, con molti termini tecnici ricorrenti. Le parole sono più lunghe in `politics`, `research` ed `economics` (linguaggio più astratto) e più corte in `sports`.
 
 ### Classificatore
-Confronto sul validation set (11.550 articoli):
+Confronto sul validation set (11.550 articoli). Il *recall minimo* è il recall della categoria riconosciuta peggio, che è sempre `politics`:
 
-| Modello | Accuratezza | F1 macro |
-|---|---|---|
-| <strong>Regressione logistica (regParam=0.01)</strong> | <strong>0.907</strong> | <strong>0.892</strong> |
-| Regressione logistica (regParam=0.01, pesi per classe) | 0.906 | 0.891 |
-| Regressione logistica (regParam=0.001) | 0.902 | 0.889 |
-| Regressione logistica (regParam=0.1) | 0.892 | 0.871 |
-| Regressione logistica con standardizzazione (impostazione predefinita di Spark) | 0.862 | 0.840 |
-| Naive Bayes | 0.847 | 0.822 |
-| Random forest (2.000 parole) | 0.706 | 0.629 |
+| Modello | Accuratezza | F1 macro | Recall minimo |
+|---|---|---|---|
+| <strong>Regressione logistica (regParam=0.01)</strong> | <strong>0.908</strong> | <strong>0.892</strong> | <strong>0.676</strong> |
+| Regressione logistica (regParam=0.001) | 0.903 | 0.888 | 0.676 |
+| Regressione logistica (regParam=0.1) | 0.898 | 0.879 | 0.676 |
+| Regressione logistica senza pesi per classe (riferimento) | 0.906 | 0.892 | 0.541 |
+| Regressione logistica con standardizzazione (impostazione predefinita di Spark) | 0.868 | 0.846 | 0.541 |
+| Naive Bayes | 0.849 | 0.835 | 0.635 |
+| Random forest (2.000 parole) | 0.733 | 0.701 | 0.432 |
 
-Valutazione finale del modello scelto sul test set (14.440 articoli):
+Tutti i modelli tranne quello senza pesi usano i pesi per classe.
 
-| | Accuratezza | F1 macro |
-|---|---|---|
-| <strong>Regressione logistica, dati puliti</strong> | <strong>0.905</strong> | <strong>0.885</strong> |
-| Stesso modello valutato come nel progetto originale (dati con duplicati, split casuale) | 0.945 | 0.944 |
+Valutazione finale del modello scelto, regressione logistica con pesi per classe, sul test set (14.440 articoli):
 
-- Con i duplicati il <strong>65% degli articoli del test set è già presente nel training set</strong>: l'accuratezza del 94,5% misura in buona parte la memoria del modello, non la capacità di classificare articoli nuovi. Il valore realistico è il 90,5%.
-- La standardizzazione delle feature, attiva per default in Spark, fa perdere 4–5 punti: con il TF-IDF porta le parole rare sulla stessa scala di quelle frequenti e ne gonfia l'influenza.
+| | Accuratezza | F1 macro | Recall di `politics` |
+|---|---|---|---|
+| <strong>Dati puliti</strong> | <strong>0.908</strong> | <strong>0.891</strong> | <strong>0.660</strong> |
+| Stesso modello valutato come nel progetto originale (dati con duplicati, split casuale) | 0.945 | 0.944 | – |
+
+- Con i duplicati il <strong>65% degli articoli del test set è già presente nel training set</strong>: l'accuratezza del 94,5% misura in buona parte la memoria del modello, non la capacità di classificare articoli nuovi. Il valore realistico è il 90,8%.
+- I <strong>pesi per classe</strong> lasciano invariate accuratezza e F1 macro, ma aumentano il recall di `politics`, la categoria più piccola (233 articoli), da 0,54 a 0,68 sul validation set. Sul test set l'F1 di `politics` è 0,63 (precisione 0,60, recall 0,66): resta la categoria più difficile, ma il modello ne riconosce due articoli su tre invece di uno su due.
+- La standardizzazione delle feature, attiva per default in Spark, fa perdere 4 punti: con il TF-IDF porta le parole rare sulla stessa scala di quelle frequenti e ne gonfia l'influenza.
 - La random forest è nettamente peggiore: i modelli ad alberi non sono adatti a decine di migliaia di feature testuali sparse.
-- La categoria più difficile è `politics` (F1 0,58, recall 0,49), con solo 233 articoli contro le migliaia delle altre. In una prova sul validation set con `regParam=0.001`, i pesi per classe ne hanno aumentato il recall da 0,57 a 0,68 senza peggiorare l'F1 macro complessivo: sono la scelta da preferire se è importante non perdere gli articoli delle categorie piccole.
-- Gli errori più frequenti sono tra `medicine` e `research` (181 articoli di `medicine` classificati come `research` e 108 nel senso opposto), perché molti articoli parlano di ricerca medica.
+- Gli errori più frequenti sono tra `medicine` e `research` (185 articoli di `medicine` classificati come `research` e 103 nel senso opposto), perché molti articoli parlano di ricerca medica.
 
 ![Matrice di confusione](images/matrice_confusione.png)

@@ -4,7 +4,7 @@ Passaggi:
 1. pulizia del dataset (duplicati, testi vuoti, testi con più categorie);
 2. split stratificato train/test (80/20); dal training set si ricava un validation set (20%);
 3. confronto dei modelli sul validation set, con le stesse feature TF-IDF;
-4. il modello migliore (F1 macro) viene riaddestrato su tutto il training set e valutato sul test set;
+4. il modello migliore (F1 macro) tra quelli con pesi per classe viene riaddestrato su tutto il training set e valutato sul test set;
 5. salvataggio della pipeline completa in models/.
 
 Opzioni:
@@ -95,7 +95,7 @@ def main():
     print(comparison, f"\n({time.time() - start:.0f} s)\n")
     comparison.to_csv(REPORTS / "confronto_modelli.csv")
 
-    best = comparison["f1_macro"].idxmax()
+    best = classifier.select_model(comparison)
     print(f"Modello scelto: {best}", flush=True)
     model, labels = classifier.train_final_model(train, classifier.candidate_models()[best])
     rows, metrics = classifier.evaluate(model, test, labels)

@@ -195,8 +195,28 @@ def test_class_weights(spark):
     assert weights == {0.0: pytest.approx(8 / (2 * 6)), 1.0: pytest.approx(8 / (2 * 2))}
 
 
-def test_logistic_regression_defaults():
+def test_logistic_regression_defaults(spark):
     model = classifier.logistic_regression(0.01)
     assert model.getStandardization() is False
-    assert not model.isSet("weightCol")
-    assert classifier.logistic_regression(0.01, class_weights=True).getWeightCol() == "weight"
+    assert model.getWeightCol() == "weight"
+    assert not classifier.logistic_regression(0.01, class_weights=False).isSet("weightCol")
+
+
+def test_candidate_models_use_class_weights(spark):
+    for name, model in classifier.candidate_models().items():
+        estimator = model.getStages()[-1] if hasattr(model, "getStages") else model
+        # Solo il modello di riferimento "senza pesi" li esclude
+        assert estimator.isSet("weightCol") != ("senza pesi" in name), name
+
+
+def test_select_model_skips_reference_models():
+    import pandas as pd
+    reference = next(iter(classifier.REFERENCE_MODELS))
+    comparison = pd.DataFrame({"f1_macro": [0.95, 0.90, 0.80]}, index=[reference, "con pesi A", "con pesi B"])
+    assert classifier.select_model(comparison) == "con pesi A"
+
+
+def test_metrics_include_worst_class_recall():
+    import pandas as pd
+    rows = pd.DataFrame({"categoria": ["a", "a", "b", "b"], "prevista": ["a", "a", "b", "a"]})
+    assert classifier.classification_metrics(rows)["recall_minimo"] == 0.5
