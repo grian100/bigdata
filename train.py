@@ -5,7 +5,8 @@ Passaggi:
 2. split stratificato train/test (80/20); dal training set si ricava un validation set (20%);
 3. confronto dei modelli sul validation set, con le stesse feature TF-IDF;
 4. il modello migliore (F1 macro) tra quelli con pesi per classe viene riaddestrato su tutto il training set e valutato sul test set;
-5. salvataggio della pipeline completa in models/.
+5. salvataggio della pipeline completa in models/ e del modello esportato per l'API REST
+   in models/esportato (vedi wikipedia.export).
 
 Opzioni:
     --confronto-duplicati   ripete la valutazione come nel progetto originale (dati con duplicati,
@@ -29,12 +30,13 @@ import numpy as np
 import pandas as pd
 from pyspark.sql import functions as F
 
-from wikipedia import classifier
+from wikipedia import classifier, export
 from wikipedia.data import LABEL, SEED, TEXT, clean_dataset, download_dataset, read_dataset, stratified_split
 from wikipedia.spark import cache, get_spark
 
 DATA_PATH = ROOT / "data" / "wikipedia.csv"
 MODEL_PATH = ROOT / "models" / "wikipedia_classifier"
+EXPORT_PATH = ROOT / "models" / "esportato"
 REPORTS = ROOT / "reports"
 IMAGES = ROOT / "images"
 
@@ -118,12 +120,18 @@ def main():
         print(f"{summary['con_duplicati']}\n")
     (REPORTS / "risultati_classificatore.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
+    # Il modello esportato si salva anche su Windows: lo usano l'API REST e predict.py
+    try:
+        export.export_model(model, EXPORT_PATH, model_name=best, test_metrics=metrics)
+        print(f"Modello esportato per l'API in {EXPORT_PATH.relative_to(ROOT).as_posix()}")
+    except ValueError as error:  # per esempio se il modello scelto è la random forest
+        print(f"Modello non esportato per l'API: {error}")
     try:
         classifier.save_model(model, MODEL_PATH)
         print(f"Modello salvato in {MODEL_PATH.relative_to(ROOT).as_posix()}")
     except Exception as error:  # su Windows Spark scrive su disco solo con winutils
         print(f"Impossibile salvare il modello ({type(error).__name__}). Su Windows Spark richiede "
-              "HADOOP_HOME con winutils.exe: eseguire l'addestramento su Databricks, Linux, macOS o WSL.")
+              "HADOOP_HOME con winutils.exe. Il modello esportato per l'API è comunque disponibile.")
     spark.stop()
 
 

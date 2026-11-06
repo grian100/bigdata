@@ -1,0 +1,38 @@
+{
+  "modello": "Regressione logistica (regParam=0.01)",
+  "tipo": "regressione_logistica",
+  "tokenizzazione": {
+    "pattern": "[a-z]+",
+    "lunghezza_minima": 2
+  },
+  "categorie": [
+    "transport",
+    "medicine",
+    "research",
+    "technology",
+    "engineering",
+    "humanities",
+    "finance",
+    "pets",
+    "energy",
+    "economics",
+    "trade",
+    "sports",
+    "science",
+    "culture",
+    "politics"
+  ],
+  "parole_nel_vocabolario": 50000,
+  "metriche_test": {
+    "accuratezza": 0.9015235457063712,
+    "f1_macro": 0.8823778880704705,
+    "f1_pesato": 0.9013282520458242,
+    "recall_minimo": 0.574468085106383
+  },
+  "data_addestramento": "2026-11-06T00:10:05+00:00",
+  "versioni": {
+    "pyspark": "3.5.5",
+    "numpy": "2.2.6",
+    "scipy": "1.15.3"
+  }
+}

@@ -32,7 +32,7 @@ sys.path.append(os.path.abspath("../src"))
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from wikipedia import analysis, classifier, wordclouds
+from wikipedia import analysis, classifier, export, wordclouds
 from wikipedia.data import clean_dataset, download_dataset, duplication_by_category, quality_report, read_dataset, stratified_split
 from wikipedia.spark import cache
 from wikipedia.text import tokenize
@@ -127,6 +127,8 @@ display(classifier.per_class_report(rows).reset_index())
 # COMMAND ----------
 
 classifier.save_model(model, MODEL_PATH)
+# Versione leggera per l'API REST (src/wikipedia/api.py), che non richiede Spark
+export.export_model(model, f"{VOLUME}/models/esportato", model_name=best, test_metrics=metrics)
 
 # COMMAND ----------
 

@@ -1,5 +1,4 @@
 import os
-import random
 import sys
 
 import pytest
@@ -7,53 +6,15 @@ from pyspark.ml.classification import LogisticRegression, NaiveBayes
 
 from wikipedia import analysis, classifier
 from wikipedia.data import (
-    clean_dataset,
     duplication_by_category,
     quality_report,
     read_dataset,
     stratified_split,
     word_count,
 )
-from wikipedia.spark import get_spark
 from wikipedia.text import tokenize
 
-VOCABULARY = {
-    "sports": ["football", "match", "league", "goal", "team", "player", "season", "stadium"],
-    "medicine": ["patient", "disease", "treatment", "clinical", "symptoms", "therapy", "cancer", "drug"],
-    "energy": ["solar", "wind", "power", "electricity", "grid", "turbine", "renewable", "oil"],
-}
-COMMON = ["history", "world", "people", "city", "group", "system", "large", "public"]
-
-
-def _article(category, rng, i):
-    words = rng.choices(VOCABULARY[category], k=30) + rng.choices(COMMON, k=30)
-    rng.shuffle(words)
-    text = f"{category.title()} article {i}. " + " ".join(words) + "."
-    return (f"{category} {i}", text.split(".")[0], text, category)
-
-
-@pytest.fixture(scope="session")
-def spark():
-    session = get_spark("test", driver_memory="2g")
-    yield session
-    session.stop()
-
-
-@pytest.fixture(scope="session")
-def raw(spark):
-    rng = random.Random(0)
-    rows = [_article(c, rng, i) for c in VOCABULARY for i in range(60)]
-    rows += rows[:20]                                           # 20 duplicati esatti
-    rows.append(("Vuoto", "", "   ", "sports"))                 # testo vuoto
-    rows.append(("Ambiguo A", "x", "same text in two categories", "sports"))
-    rows.append(("Ambiguo B", "x", "same text in two categories", "energy"))
-    rows.append(("Altro titolo", rows[0][1], rows[0][2], rows[0][3]))  # stesso testo, altro titolo
-    return spark.createDataFrame(rows, ["title", "summary", "documents", "categoria"])
-
-
-@pytest.fixture(scope="session")
-def clean(raw):
-    return clean_dataset(raw).cache()
+from conftest import VOCABULARY
 
 
 def test_read_dataset_handles_multiline_and_quotes(spark, tmp_path):
@@ -107,6 +68,15 @@ def test_stratified_split(clean):
     assert train.join(test, "documents").count() == 0
     again, _ = stratified_split(clean, test_fraction=0.25)
     assert sorted(r.title for r in train.collect()) == sorted(r.title for r in again.collect())
+
+
+def test_stratified_split_ignores_row_order(clean):
+    # Lo split dipende solo dal contenuto delle righe, non da come sono distribuite nelle partizioni
+    _, test = stratified_split(clean, test_fraction=0.25)
+    _, shuffled = stratified_split(clean.repartition(7).orderBy("summary"), test_fraction=0.25)
+    assert sorted(r.title for r in test.collect()) == sorted(r.title for r in shuffled.collect())
+    _, other_seed = stratified_split(clean, test_fraction=0.25, seed=1)
+    assert sorted(r.title for r in test.collect()) != sorted(r.title for r in other_seed.collect())
 
 
 def test_tokenize(spark):

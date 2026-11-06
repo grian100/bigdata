@@ -8,6 +8,7 @@ Questo progetto si prefigge di ottimizzare l'analisi e la categorizzazione dei c
 - <strong>Pandas</strong> per i risultati aggregati e <strong>Matplotlib</strong> per i grafici
 - <strong>WordCloud</strong>, libreria per la creazione delle nuvole di parole
 - <strong>Scikit-learn</strong> per il calcolo delle metriche di classificazione, <strong>pytest</strong> per i test
+- <strong>FastAPI</strong> e <strong>Uvicorn</strong> per l'API REST, che usa il modello esportato con <strong>NumPy</strong> e <strong>SciPy</strong>
 
 # Obiettivi del progetto
 1. Analisi Descrittiva dei Contenuti
@@ -36,12 +37,18 @@ bigdata/
 │   ├── text.py         # tokenizzazione e stopword comuni a tutte le analisi
 │   ├── analysis.py     # statistiche per categoria, parole frequenti e caratteristiche, indicatori linguistici
 │   ├── wordclouds.py   # nuvole di parole
-│   └── classifier.py   # pipeline Spark ML, confronto dei modelli, valutazione, previsione
+│   ├── classifier.py   # pipeline Spark ML, confronto dei modelli, valutazione, previsione
+│   ├── export.py       # esportazione del modello e previsioni con NumPy, senza Spark
+│   └── api.py          # API REST (FastAPI) per le previsioni
 ├── notebooks/
 │   ├── databricks_wikipedia.py   # notebook Databricks con l'intero progetto
 │   └── risultati.ipynb           # notebook con tutti i risultati, già eseguito
 ├── images/                       # grafici e nuvole di parole (images/wordclouds/*.png)
-├── tests/test_wikipedia.py
+├── models/esportato/             # modello finale esportato, usato dall'API e da predict.py
+├── tests/
+│   ├── conftest.py               # dataset sintetico e sessione Spark per i test
+│   ├── test_wikipedia.py
+│   └── test_api.py
 ├── eda.py              # analisi esplorativa, insights e nuvole di parole
 ├── train.py            # addestramento e valutazione del classificatore
 ├── predict.py          # classificazione di nuovi articoli
@@ -66,11 +73,75 @@ python -m venv .venv
 .venv\Scripts\python.exe eda.py                                 # circa 3 minuti
 .venv\Scripts\python.exe train.py --confronto-duplicati         # addestramento e valutazione
 .venv\Scripts\python.exe predict.py --testo "The striker scored twice in the cup final."
+.venv\Scripts\python.exe -m uvicorn wikipedia.api:app --app-dir src   # API REST su http://localhost:8000
 .venv\Scripts\python.exe -m pytest                              # test
 ```
 Al primo avvio il dataset (circa 1 GB) viene scaricato in `data/`. Tabelle e risultati vengono salvati in `reports/`, grafici e nuvole di parole in `images/`, il modello in `models/`.
 
-<strong>Nota per Windows</strong>: Spark scrive file su disco solo se è configurato `HADOOP_HOME` con `winutils.exe`. Senza, analisi e addestramento funzionano (i risultati vengono salvati con pandas), ma il modello non può essere salvato e quindi `predict.py` non ha un modello da usare. Per salvare il modello conviene usare Databricks, Linux, macOS o WSL.
+Il modello finale esportato è già incluso nel repository (`models/esportato`, circa 6 MB): `predict.py` e l'API REST funzionano subito dopo il clone, senza scaricare il dataset né addestrare il modello, e non richiedono Java.
+
+<strong>Nota per Windows</strong>: Spark scrive file su disco solo se è configurato `HADOOP_HOME` con `winutils.exe`. Senza, analisi e addestramento funzionano (i risultati vengono salvati con pandas) e il modello esportato per l'API viene salvato comunque, ma la pipeline Spark completa (`models/wikipedia_classifier`, usata da `predict.py --spark`) no. Per salvarla conviene usare Databricks, Linux, macOS o WSL.
+
+# API REST
+Avvio, dalla cartella del progetto e con le dipendenze installate:
+```bash
+python -m uvicorn wikipedia.api:app --app-dir src --host 0.0.0.0 --port 8000
+```
+Si usa `python -m uvicorn` invece di `uvicorn` perché funziona anche quando la cartella degli eseguibili di Python non è nel PATH. La documentazione interattiva, da cui si possono provare le richieste, è su http://localhost:8000/docs.
+
+L'API non avvia Spark: carica all'avvio il modello esportato da `train.py` (vocabolario, pesi IDF e coefficienti della regressione logistica) e calcola le previsioni con NumPy. Le previsioni sono identiche a quelle della pipeline Spark: i test lo verificano per regressione logistica e Naive Bayes, e in una verifica sul test set completo (14.440 articoli) le categorie previste coincidevano tutte e le probabilità differivano al massimo di 4·10⁻¹⁶. Classificare l'intero test set richiede circa 10 secondi, meno di un millisecondo per articolo.
+
+| Metodo | Percorso | Descrizione |
+|---|---|---|
+| GET | `/health` | verifica che il servizio sia attivo |
+| GET | `/model` | categorie, dimensione del vocabolario, metriche sul test set, data di addestramento e versioni |
+| POST | `/predict` | categoria di un articolo |
+| POST | `/predict/batch` | categoria di più articoli (al massimo 100 per richiesta) |
+
+I due endpoint di previsione accettano il parametro `top_k` (default 3), il numero di categorie alternative da restituire. Esempio con PowerShell:
+```powershell
+$body = @{ titolo = "Esempio"; testo = "The new clinic treats patients with chronic heart disease. Doctors combine medication, diet and exercise programs, and nurses follow each patient after discharge from the hospital. A clinical trial is testing whether a new drug reduces the risk of a second heart attack, and early results suggest fewer complications than the standard therapy." } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/predict -ContentType "application/json; charset=utf-8" -Body $body
+```
+o con curl:
+```bash
+curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d '{"titolo": "Esempio", "testo": "The new clinic treats patients with chronic heart disease. Doctors combine medication, diet and exercise programs, and nurses follow each patient after discharge from the hospital. A clinical trial is testing whether a new drug reduces the risk of a second heart attack, and early results suggest fewer complications than the standard therapy."}'
+```
+Risposta:
+```json
+{
+  "titolo": "Esempio",
+  "categoria": "research",
+  "probabilita": 0.319,
+  "alternative": [
+    {"categoria": "research", "probabilita": 0.319},
+    {"categoria": "medicine", "probabilita": 0.225},
+    {"categoria": "engineering", "probabilita": 0.082}
+  ],
+  "parole_riconosciute": 36,
+  "avviso": "Previsione poco affidabile: probabilità bassa (32%)."
+}
+```
+- `parole_riconosciute` è il numero di parole del testo presenti nel vocabolario del modello. Se nessuna parola è nota (per esempio un testo non in inglese) `categoria` e `probabilita` sono `null`.
+- La risposta contiene un `avviso` quando le parole riconosciute sono meno di 20 o la probabilità è sotto 0,4. Le soglie vengono dal test set:
+
+  | Testo usato | Accuratezza | Probabilità media |
+  |---|---|---|
+  | prime 20 parole dell'articolo | 0.668 | 0.24 |
+  | prime 50 parole | 0.816 | 0.39 |
+  | prime 100 parole | 0.864 | 0.57 |
+  | prime 200 parole | 0.884 | 0.73 |
+  | articolo completo | 0.902 | 0.87 |
+
+  Il modello è addestrato su articoli completi (mediana di 219 parole riconosciute), quindi su testi brevi le probabilità sono basse e gli errori più frequenti. Nell'esempio il testo parla di medicina, ma il modello esita tra `research` e `medicine`, la confusione più frequente anche sul test set, e l'avviso lo segnala. La probabilità è un buon indicatore di affidabilità: gli articoli del test set con probabilità sopra 0,8 sono classificati correttamente nel 95% dei casi, quelli sotto 0,4 al massimo nel 65%.
+- Le categorie riflettono i sotto-argomenti del dataset (vedi [Insights](#insights)): per esempio `sports` è quasi solo tennis, e un testo sul calcio viene classificato come `engineering`, tra le cui parole più importanti c'è *footballer*.
+- Il testo deve contenere da 1 a 500.000 caratteri; richieste non valide ricevono errore 422 con il dettaglio del problema.
+
+Configurazione tramite variabili d'ambiente:
+- `WIKIPEDIA_MODEL_DIR`: cartella del modello esportato (default `models/esportato`).
+- `WIKIPEDIA_API_KEY`: se impostata, tutte le richieste tranne `/health` devono contenere l'header `X-API-Key` con questo valore, altrimenti ricevono errore 401.
+
+In produzione il servizio va esposto tramite HTTPS, per esempio dietro un reverse proxy, e con `WIKIPEDIA_API_KEY` impostata. L'API non salva i testi ricevuti.
 
 # Workflow
 1. <strong>Caricamento</strong>: il CSV viene letto direttamente da Spark con `spark.read.csv` (`multiLine` ed `escape` delle virgolette, perché i testi contengono a capo e virgolette), senza passare da pandas: con 1 GB di dati caricare tutto in memoria sul driver vanificherebbe l'uso di Spark.
@@ -90,7 +161,7 @@ Al primo avvio il dataset (circa 1 GB) viene scaricato in `data/`. Tabelle e ris
    - regressione logistica con la standardizzazione delle feature, impostazione predefinita di Spark: con il TF-IDF amplifica le parole rare e peggiora i risultati;
    - Naive Bayes, il modello classico per la classificazione di testi, e random forest, preceduta dalla selezione delle 2.000 parole più informative, perché con 50.000 feature sparse esaurisce la memoria.
 
-   Tutti i modelli tranne quello di riferimento senza pesi usano i pesi per classe. Il modello finale è il migliore per F1 macro tra quelli con i pesi; viene valutato una sola volta sul test set e salvato come pipeline completa, che riceve direttamente il testo grezzo.
+   Tutti i modelli tranne quello di riferimento senza pesi usano i pesi per classe. Il modello finale è il migliore per F1 macro tra quelli con i pesi; viene valutato una sola volta sul test set e salvato come pipeline completa, che riceve direttamente il testo grezzo. Viene anche esportato in un formato leggero, usato dall'API REST senza Spark.
 
 6. <strong>Insights</strong>: duplicazione e densità degli articoli per categoria, sotto-argomenti dominanti, indicatori linguistici (ricchezza lessicale e lunghezza delle parole).
 
@@ -128,17 +199,17 @@ Le nuvole mostrano le <strong>parole caratteristiche</strong> di ogni categoria,
 - <strong>Tendenze linguistiche</strong>: `humanities`, `pets` e `culture` hanno il lessico più vario, `energy` e `transport` il più ripetitivo, con molti termini tecnici ricorrenti. Le parole sono più lunghe in `politics`, `research` ed `economics` (linguaggio più astratto) e più corte in `sports`.
 
 ### Classificatore
-Confronto sul validation set (11.550 articoli). Il *recall minimo* è il recall della categoria riconosciuta peggio, che è sempre `politics`:
+Confronto sul validation set (11.550 articoli). Il *recall minimo* è il recall della categoria riconosciuta peggio:
 
 | Modello | Accuratezza | F1 macro | Recall minimo |
 |---|---|---|---|
-| <strong>Regressione logistica (regParam=0.01)</strong> | <strong>0.908</strong> | <strong>0.892</strong> | <strong>0.676</strong> |
-| Regressione logistica (regParam=0.001) | 0.903 | 0.888 | 0.676 |
-| Regressione logistica (regParam=0.1) | 0.898 | 0.879 | 0.676 |
-| Regressione logistica senza pesi per classe (riferimento) | 0.906 | 0.892 | 0.541 |
-| Regressione logistica con standardizzazione (impostazione predefinita di Spark) | 0.868 | 0.846 | 0.541 |
-| Naive Bayes | 0.849 | 0.835 | 0.635 |
-| Random forest (2.000 parole) | 0.733 | 0.701 | 0.432 |
+| <strong>Regressione logistica (regParam=0.01)</strong> | <strong>0.908</strong> | <strong>0.892</strong> | <strong>0.703</strong> |
+| Regressione logistica (regParam=0.001) | 0.902 | 0.889 | 0.676 |
+| Regressione logistica (regParam=0.1) | 0.901 | 0.882 | 0.757 |
+| Regressione logistica senza pesi per classe (riferimento) | 0.907 | 0.883 | 0.405 |
+| Regressione logistica con standardizzazione (impostazione predefinita di Spark) | 0.868 | 0.848 | 0.541 |
+| Naive Bayes | 0.847 | 0.832 | 0.622 |
+| Random forest (2.000 parole) | 0.731 | 0.701 | 0.425 |
 
 Tutti i modelli tranne quello senza pesi usano i pesi per classe.
 
@@ -146,13 +217,13 @@ Valutazione finale del modello scelto, regressione logistica con pesi per classe
 
 | | Accuratezza | F1 macro | Recall di `politics` |
 |---|---|---|---|
-| <strong>Dati puliti</strong> | <strong>0.908</strong> | <strong>0.891</strong> | <strong>0.660</strong> |
+| <strong>Dati puliti</strong> | <strong>0.902</strong> | <strong>0.882</strong> | <strong>0.574</strong> |
 | Stesso modello valutato come nel progetto originale (dati con duplicati, split casuale) | 0.945 | 0.944 | – |
 
-- Con i duplicati il <strong>65% degli articoli del test set è già presente nel training set</strong>: l'accuratezza del 94,5% misura in buona parte la memoria del modello, non la capacità di classificare articoli nuovi. Il valore realistico è il 90,8%.
-- I <strong>pesi per classe</strong> lasciano invariate accuratezza e F1 macro, ma aumentano il recall di `politics`, la categoria più piccola (233 articoli), da 0,54 a 0,68 sul validation set. Sul test set l'F1 di `politics` è 0,63 (precisione 0,60, recall 0,66): resta la categoria più difficile, ma il modello ne riconosce due articoli su tre invece di uno su due.
+- Con i duplicati il <strong>65% degli articoli del test set è già presente nel training set</strong>: l'accuratezza del 94,5% misura in buona parte la memoria del modello, non la capacità di classificare articoli nuovi. Il valore realistico è il 90,2%.
+- I <strong>pesi per classe</strong> lasciano praticamente invariata l'accuratezza e migliorano l'F1 macro (da 0,883 a 0,892 sul validation set), perché aumentano il recall della categoria peggiore da 0,41 a 0,70. `politics`, la categoria più piccola (233 articoli), resta la più difficile: sul test set ha F1 0,59 (precisione 0,60, recall 0,57). Con soli 47 articoli nel test set, però, queste metriche sono molto variabili: un articolo in più o in meno riconosciuto sposta il recall di 2 punti.
 - La standardizzazione delle feature, attiva per default in Spark, fa perdere 4 punti: con il TF-IDF porta le parole rare sulla stessa scala di quelle frequenti e ne gonfia l'influenza.
 - La random forest è nettamente peggiore: i modelli ad alberi non sono adatti a decine di migliaia di feature testuali sparse.
-- Gli errori più frequenti sono tra `medicine` e `research` (185 articoli di `medicine` classificati come `research` e 103 nel senso opposto), perché molti articoli parlano di ricerca medica.
+- Gli errori più frequenti sono tra `medicine` e `research` (187 articoli di `medicine` classificati come `research` e 127 nel senso opposto), perché molti articoli parlano di ricerca medica. Gli articoli di `politics` non riconosciuti (20 su 47) sono sparsi tra molte categorie, al massimo 6 nella stessa (`culture`).
 
 ![Matrice di confusione](images/matrice_confusione.png)

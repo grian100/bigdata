@@ -98,8 +98,14 @@ def stratified_split(df, test_fraction=0.2, seed=SEED):
     randomSplit di Spark non è stratificato: con categorie molto piccole (es. politics)
     il test set potrebbe contenerne pochissimi esempi. Qui ogni categoria viene divisa
     separatamente secondo un ordine casuale riproducibile.
+
+    L'ordine è dato da un hash del contenuto della riga (e del seed), non da F.rand:
+    rand dipende dall'ordine delle righe nelle partizioni, che dopo uno shuffle (come
+    quello di clean_dataset) può cambiare tra un calcolo e l'altro. Con rand, ricalcolando
+    il DataFrame (senza cache, come sul serverless di Databricks) train e test potrebbero
+    sovrapporsi, e lo split cambierebbe tra un'esecuzione e l'altra.
     """
-    ordered = df.withColumn("_rand", F.rand(seed))
+    ordered = df.withColumn("_rand", F.xxhash64(F.lit(seed), *[F.col(c) for c in df.columns]))
     window = Window.partitionBy(LABEL).orderBy("_rand")
     ranked = ordered.withColumn("_rank", F.percent_rank().over(window))
     test = ranked.filter(F.col("_rank") < test_fraction).drop("_rand", "_rank")

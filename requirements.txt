@@ -1,9 +1,14 @@
-# Su Databricks pyspark è già installato: servono solo wordcloud e scikit-learn
+# Su Databricks pyspark è già installato: servono solo wordcloud e scikit-learn.
+# L'API REST richiede solo numpy, scipy, fastapi e uvicorn (non pyspark).
 pyspark==3.5.5
 pandas>=2.0,<3
 numpy>=1.26,<2.4
 matplotlib>=3.8
 wordcloud>=1.9
 scikit-learn>=1.3
+scipy>=1.11
+fastapi>=0.115
+uvicorn>=0.30
+httpx>=0.27
 pytest>=8.0
 jupyterlab>=4.0
